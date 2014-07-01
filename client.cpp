@@ -313,8 +313,11 @@ void Client::WriteLoginLog()
 bool Client::sendPacket30(uint8_t * args, uint32_t aSize, uint16_t opcode)
 {
 	// Result
-	bool result = false;
+	bool result = true;
 
+	// Send Progress Meter
+	int sentData = 0;
+	
 	// Calculate real decrypted Data Length (segCount + DataSize + subOpCode + aSize)
 	uint32_t dataLen = sizeof(uint32_t) + sizeof(uint16_t) + sizeof(uint16_t) + aSize;
 
@@ -392,8 +395,40 @@ bool Client::sendPacket30(uint8_t * args, uint32_t aSize, uint16_t opcode)
 	printf("\n");
 	*/
 
-	// Send Packet
-	result = (send(this->socket, (char*)response, responseLen, MSG_NOSIGNAL) == (int)responseLen);
+	// Send Header Data
+	while (result && sentData < (int)responseLen)
+	{
+		// Send Data
+		int sendResult = send(this->socket, (char *)response + sentData, responseLen - sentData, MSG_NOSIGNAL);
+
+		// Sent Data
+		if (sendResult > 0)
+		{
+			// Accumulate Progress
+			sentData += sendResult;
+		}
+
+		// Clean Disconnect
+		else if (sendResult == 0)
+		{
+			// Set Result
+			result = false;
+		}
+
+		// TX Buffer is full
+		else if (errno == EAGAIN || errno == EWOULDBLOCK)
+		{
+			// Wait 1ms then retry
+			usleep(1000);
+		}
+
+		// Unclean Disconnect
+		else
+		{
+			// Set Result
+			result = false;
+		}
+	}
 
 	// Free Memory
 	delete [] response;
