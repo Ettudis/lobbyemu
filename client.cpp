@@ -1068,6 +1068,9 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 
 		case OPCODE_DATA_DISKID:
 		{
+			// Disk ID Ban Check Result
+			bool diskIDBanned = false;
+
 			// Argument given (everything else has to be a hacking attempt and will be ignored here)
 			if (aSize >= 10)
 			{
@@ -1085,20 +1088,39 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 					if (strcmp(staticText, "dot_hack") == 0)
 					{
 						// Store Data into Client Object
-						strncpy(this->diskID, diskID, sizeof(this->diskID));
+						strncpy(this->diskID, diskID, sizeof(this->diskID) - 1);
+
+						// Check Disk ID against Ban-Table
+						diskIDBanned = GetAntiCheatEngineResult();
+					}
+
+					// Invalid Static Text
+					else
+					{
+						printf("Invalid Static Text detected during OPCODE_DATA_DISKID check!\n");
+						diskIDBanned = true;
 					}
 				}
+
+				// Disk ID Overflow Hack detected
+				else
+				{
+					printf("Disk ID Overflow Hacking Attempt detected during OPCODE_DATA_DISKID check!\n");
+					diskIDBanned = true;
+				}
 			}
+
+			// Missing Argument
 			else
 			{
 				printf("OPCODE_DATA_DISKID INCOMPLETE\n");
+				diskIDBanned = true;
 			}
 
-			// Send Default Response
+			// Send Disk ID Response
 			uint8_t uRes[] = {0x78,0x94};
-			printf("Sending DISKID_OK\n");
-			sendPacket30(uRes,sizeof(uRes),OPCODE_DATA_DISKID_OK);
-			
+			printf("Sending %s\n", (diskIDBanned ? "DISKID_BAD" : "DISKID_OK"));
+			sendPacket30(uRes,sizeof(uRes), (diskIDBanned ? OPCODE_DATA_DISKID_BAD : OPCODE_DATA_DISKID_OK));
 			//sendPacket30(uRes,sizeof(uRes),0x7002);
 			//sendPacket30(uRes,sizeof(uRes),0x7003);
 			//sendPacket30(uRes,sizeof(uRes),0x7004);
@@ -1106,13 +1128,13 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 			//sendPacket30(uRes,sizeof(uRes),0x7006);
 			//sendPacket30(uRes,sizeof(uRes),0x7007);
 			//sendPacket30(uRes,sizeof(uRes),0x7008);
-			
+		
 			//for(int i = 0; i < 10; i++)
 			//{
 				//sendPacket30(uRes,sizeof(uRes),(uint16_t)0x7826 + i);
-				
-				
-				
+			
+			
+			
 			//}
 			break;
 		}
@@ -1229,9 +1251,9 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 										this->activeCharacterGP = ntohl(*characterGP);
 										this->activeCharacterOfflineGodCounter = ntohs(*offlineGodCounter);
 										this->activeCharacterOnlineGodCounter = ntohs(*onlineGodCounter);
-										strncpy(this->activeCharacterSaveID, saveID, sizeof(this->activeCharacterSaveID));
-										strncpy(this->activeCharacter, characterName, sizeof(this->activeCharacter));
-										strncpy(this->activeCharacterGreeting, greeting, sizeof(this->activeCharacterGreeting));
+										strncpy(this->activeCharacterSaveID, saveID, sizeof(this->activeCharacterSaveID) - 1);
+										strncpy(this->activeCharacter, characterName, sizeof(this->activeCharacter) - 1);
+										strncpy(this->activeCharacterGreeting, greeting, sizeof(this->activeCharacterGreeting) - 1);
 									}
 								}
 							}
@@ -1305,9 +1327,9 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 						if (characterSaveID < (char *)(arg + aSize))
 						{
 							// Store Data into Client Object
-							strncpy(this->diskID, diskID, sizeof(this->diskID));
-							strncpy(this->saveID, saveID, sizeof(this->saveID));
-							strncpy(this->activeCharacterSaveID, characterSaveID, sizeof(this->activeCharacterSaveID));
+							strncpy(this->diskID, diskID, sizeof(this->diskID) - 1);
+							strncpy(this->saveID, saveID, sizeof(this->saveID) - 1);
+							strncpy(this->activeCharacterSaveID, characterSaveID, sizeof(this->activeCharacterSaveID) - 1);
 
 							// Write Login Attempt to Log
 							WriteLoginLog();
@@ -4068,6 +4090,9 @@ bool Client::GetAntiCheatEngineResult()
 						}
 					}
 				}
+
+				// Already found a Ban-Critera, stop searching
+				if (result) break;
 			}
 
 			// Close File
