@@ -1945,7 +1945,7 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 					for(std::list<AreaServer *>::iterator it = areaServers->begin(); it != areaServers->end();/*takes care of itself...*/)
 					{
 						AreaServer * as = *it;
-						as->GetServerLine(uRes,sizeof(uRes),this->asExtAddr, GetAntiCheatEngineResult());
+						as->GetServerLine(uRes,sizeof(uRes),this->asExtAddr);
 						sendPacket30(uRes,sizeof(uRes),OPCODE_DATA_LOBBY_GETSERVERS_ENTRY_SERVER);
 											
 						it++;				

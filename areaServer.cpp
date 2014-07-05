@@ -153,13 +153,9 @@ uint16_t AreaServer::GetPlayerCount()
  * @param output Output Buffer
  * @param outputLen Output Buffer Length (in Bytes)
  * @param clientIP Public Client IP Address
- * @param cheaterDetected Anti-Cheat Trigger
  */
-bool AreaServer::GetServerLine(uint8_t * output,uint16_t outputLen, uint32_t clientIP, bool cheaterDetected)
+bool AreaServer::GetServerLine(uint8_t * output,uint16_t outputLen, uint32_t clientIP)
 {
-	// Anti-Cheater Server Name
-	const char * antiCheatServerName = "GTFO CHEATER";
-
 	// Invalid Arguments
 	if (output == NULL || outputLen <= 0) return false;
 
@@ -174,7 +170,7 @@ bool AreaServer::GetServerLine(uint8_t * output,uint16_t outputLen, uint32_t cli
 	uint32_t * sAddr = (uint32_t *)&unk1[1];
 	uint16_t * sPort = (uint16_t *)&sAddr[1];
 	char * sName = (char *)&sPort[1];
-	uint32_t sNLen = strlen(cheaterDetected ? antiCheatServerName : this->serverName) + 1;
+	uint32_t sNLen = strlen(this->serverName) + 1;
 	uint16_t * sLevel = (uint16_t *)&sName[sNLen];
 	uint16_t * sType = &sLevel[1];
 	uint16_t * sUsers = &sType[1];
@@ -204,7 +200,7 @@ bool AreaServer::GetServerLine(uint8_t * output,uint16_t outputLen, uint32_t cli
 	*sPort = this->serverPort;
 
 	// Set Server Display Name
-	strcpy(sName, (cheaterDetected ? antiCheatServerName : this->serverName));
+	strcpy(sName, this->serverName);
 
 	// Set Server Level
 	*sLevel = htons(this->serverLevel);
@@ -216,7 +212,7 @@ bool AreaServer::GetServerLine(uint8_t * output,uint16_t outputLen, uint32_t cli
 	*sUsers = htons(this->serverUsers);
 
 	// Set Server Status
-	*sStatus = cheaterDetected ? AREASERVER_STATUS_BUSY : this->serverStatus;
+	*sStatus = this->serverStatus;
 
 	// Set Server ID
 	memcpy(sID,this->serverId,8);

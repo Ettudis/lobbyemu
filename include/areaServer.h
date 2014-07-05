@@ -124,9 +124,8 @@ class AreaServer
 	 * @param output Output Buffer
 	 * @param outputLen Output Buffer Length (in Bytes)
 	 * @param clientIP Public Client IP Address
-	 * @param cheaterDetected Anti-Cheat Trigger
 	 */
-	bool GetServerLine(uint8_t * output,uint16_t outputLen, uint32_t clientIP, bool cheaterDetected);
+	bool GetServerLine(uint8_t * output,uint16_t outputLen, uint32_t clientIP);
 
 };
 
