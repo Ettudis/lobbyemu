@@ -15,7 +15,8 @@
 #include <areaServer.h>
 #include <list>
 
-const char * MOTD = "&&&&&Welcome to\n .hack//Fragment!\n\nCurrent Status:\nMail System:Down\nNews System:Down\nLobby System:BASIC\nBBS System:Down\nRanking System:Down\nGuild System:Down\n\nThank you,\n-Project Fragment Team";
+const char * MOTD = "Welcome to\n .hack//Fragment!\n\nCurrent Status:\nMail System:Down\nNews System:Down\nLobby System:BASIC\nBBS System:Down\nRanking System:Down\nGuild System:Down\n\nThank you,\n-Project Fragment Team";
+
 
 /*
 CONSOLE COLORS:

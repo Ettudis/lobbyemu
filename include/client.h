@@ -36,8 +36,13 @@
 #define WEIGHT_NORMAL 1
 #define WEIGHT_OBESE 2
 
+#define GENDER_MALE 0
+#define GENDER_FEMALE 1
+
+
 // Message of the Day
 extern const char * MOTD;
+
 
 // Logfile Stream Type Definition
 typedef std::ofstream clOfstream;
@@ -100,6 +105,9 @@ class Client
 	// .hack//frägment System Save ID
 	char saveID[21];
 
+	// Account ID used for emails/friend list.
+	uint32_t accountID;
+
 	// .hack//frägment Character Save ID
 	char activeCharacterSaveID[21];
 
@@ -132,6 +140,8 @@ class Client
 
 	// Number of God Statues visited online with the currently selected Character (inside of Lobby)
 	uint16_t activeCharacterOnlineGodCounter;
+
+
 
 	/**
 	 * Internal Common Constructor
@@ -390,6 +400,40 @@ class Client
 	 * @return Is this player a cheater?
 	 */
 	bool GetAntiCheatEngineResult();
+
+	/**
+	 * Calculates the Level 1 HP value for this character, to be used in calculation for Expected
+	 * Current Level HP.
+	 * @return Level 1 HP Value (or -1 if undetectable)
+	 */
+	int GetExpectedBaseHPValue();
+
+	/**
+	 * Calculates the Level 1 SP value for this character, to be used in calculation for Expected
+	 * Current Level SP.
+	 * @return Level 1 SP Value (or -1 if undetectable)
+	 */
+	int GetExpectedBaseSPValue();
+
+	/**
+	 * Calculates the Expected HP Value for this character at their current level, to be used for
+	 * the Anti Cheat Engine
+	 * @return Expected HP Value (or -1 if undetectable)
+	 */
+	int GetExpectedHPValue();
+
+	/**
+	 * Calculates the Expected SP Value for this character at their current level, to be used for
+	 * the Anti Cheat Engine
+	 * @return Expected SP Value (or -1 if undetectable)
+	 */
+	int GetExpectedSPValue();
+
+	/**
+	 * Gets the character gender, based off of the current character's model number.
+	 @return GENDER_MALE or GENDER_FEMALE (or -1 if undetectable)
+	 */
+	int GetCharacterGender();
 
 	/**
 	 * Returns the Client Network Socket

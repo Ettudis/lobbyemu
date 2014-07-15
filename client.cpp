@@ -72,6 +72,7 @@ void Client::CommonConstructor(int socket)
 	memset(this->activeCharacterSaveID, 0, sizeof(this->activeCharacterSaveID));
 	memset(this->activeCharacter, 0, sizeof(this->activeCharacter));
 	memset(this->activeCharacterGreeting, 0, sizeof(this->activeCharacterGreeting));
+	this->accountID = 0;
 
 	// Initialize RX Buffer
 	this->rxBufferPosition = 0;
@@ -1184,13 +1185,32 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 		{
 			uint8_t uRes[512];
 			memset(uRes, 0, sizeof(uRes));
-			strncpy((char *)uRes, MOTD, sizeof(uRes) - 1);
+
+			uint32_t * uID = (uint32_t*)uRes;
+			uint8_t * unk1 = (uint8_t*)&uID[1];
+			char * msg = (char *)&unk1[1];
+			*uID = htonl(this->accountID);
+			*unk1 = 0x3e;
+			strncpy(msg, MOTD, sizeof(uRes) - 6);
+
 			//printf("SENDING: %s\n",uRes);
 			printf("Sending SAVEID_OK\n");
 			//sendPacket30(uRes,sizeof(uRes),OPCODE_DATA_SAVEID_OK);	
 			sendPacket30(uRes,sizeof(uRes),0x742a);	
 		
 		
+			/*
+			 0x742a SAVEID_OK
+			 struct
+			 {
+			 	 uint32_t accountID (for emails/friend card)
+			 	 char motdStart; //This doesn't get seen in the popup window, but if it's null there's no popup.
+			 	 char* welcomeMessage; //I forget the max size of this right now.
+			 }
+
+			 */
+
+
 			break;
 		}																						
 		
@@ -1274,6 +1294,8 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 									uint16_t * offlineGodCounter = (uint16_t *)&onlineGodCounter[1];
 									// uint16_t * unk2 = (uint16_t *)&offlineGodCounter[1];
 
+
+
 									// Prevent non-critical but annoying invalid data Hacking Attempts
 									if (ntohs(*characterLevel) >= MIN_CHARACTER_LEVEL && ntohs(*characterLevel) <= MAX_CHARACTER_LEVEL)
 									{
@@ -1289,6 +1311,9 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 										strncpy(this->activeCharacterSaveID, saveID, sizeof(this->activeCharacterSaveID) - 1);
 										strncpy(this->activeCharacter, characterName, sizeof(this->activeCharacter) - 1);
 										strncpy(this->activeCharacterGreeting, greeting, sizeof(this->activeCharacterGreeting) - 1);
+
+
+
 									}
 								}
 							}
@@ -1366,6 +1391,19 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 							strncpy(this->saveID, saveID, sizeof(this->saveID) - 1);
 							strncpy(this->activeCharacterSaveID, characterSaveID, sizeof(this->activeCharacterSaveID) - 1);
 
+							int expectedHP = GetExpectedHPValue();
+							if(expectedHP != GetCharacterHP())
+							{
+								printf("HP MISMATCH: Expected HP: %u, Player HP: %u\n",expectedHP,GetCharacterHP());
+								banCache = true;
+							}
+							int expectedSP = GetExpectedSPValue();
+							if(expectedSP != GetCharacterSP())
+							{
+								printf("SP MISMATCH: Expected SP: %u, Player SP: %u\n",expectedSP,GetCharacterSP());
+								banCache = true;
+							}
+
 							// Write Login Attempt to Log
 							WriteLoginLog();
 						}
@@ -1381,6 +1419,8 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 			printf("RECEIVED DATA_SELECT_CHAR\n");
 			uint8_t uRes[] = {0x00,0x00};
 			printf("Sending SELECT_CHAROK\n");
+
+
 			sendPacket30(uRes,sizeof(uRes), (GetAntiCheatEngineResult() ? OPCODE_DATA_SELECT_CHARDENIED : OPCODE_DATA_SELECT_CHAROK));
 			break;
 		}
@@ -3997,6 +4037,148 @@ int Client::GetGodStatueCounter(bool online)
 	// Return Online Counter
 	return online ? this->activeCharacterOnlineGodCounter : activeCharacterOfflineGodCounter;
 }
+
+
+/**
+ * Gets the character gender, based off of the current character's model number.
+ @return GENDER_MALE or GENDER_FEMALE (or -1 if undetectable)
+ */
+int Client::GetCharacterGender()
+{
+	if(GetCharacterName() == NULL) return -1;
+	int femaleIndices[] = {4,6,3,2,3,3};
+	int characterClass = GetCharacterClass();
+	int modelNumber = GetCharacterModelNumber();
+	if(modelNumber > femaleIndices[characterClass])
+	{
+		return GENDER_FEMALE;
+	}
+	return GENDER_MALE;
+}
+
+/**
+ * Calculates the Level 1 HP value for this character, to be used in calculation for Expected
+ * Current Level HP.
+ * @return Level 1 HP Value (or -1 if undetectable)
+ */
+int Client::GetExpectedBaseHPValue()
+{
+	if (GetCharacterName() == NULL) return -1;
+
+
+	int baseHPPerClass[] = {63,66,70,75,70,55};
+
+
+	int physModHP[] = {-4,-2,1,-2,0,3,0,2,5};
+
+	int characterClass = GetCharacterClass();
+	//if I really need to, I'll make a function that returns the model type as an int later...
+	int modelPhysique = (activeCharacterModel >> 12) & 0x0F;
+	int characterGender = GetCharacterGender();
+
+	int baseHP = baseHPPerClass[characterClass];
+
+	//females enjoy -2 HP starting HP over their male counterparts.
+
+	if(characterGender == GENDER_FEMALE) baseHP -= 2;
+
+	baseHP += physModHP[modelPhysique];
+
+	return baseHP;
+
+}
+
+/**
+ * Calculates the Level 1 SP value for this character, to be used in calculation for Expected
+ * Current Level SP.
+ * @return Level 1 SP Value (or -1 if undetectable)
+ */
+int Client::GetExpectedBaseSPValue()
+{
+	if (GetCharacterName() == NULL) return -1;
+	int baseSPPerClass[] = {13,13,13,13,13,20};
+	int physModSP[] = {2,0,-1,2,0,-1,2,0,-1};
+
+
+	int characterClass = GetCharacterClass();
+	//if I really need to, I'll make a function that returns the model type as an int later...
+	int modelPhysique = (activeCharacterModel >> 12) & 0x0F;
+	int characterGender = GetCharacterGender();
+	int baseSP = baseSPPerClass[characterClass];
+
+
+
+	//females enjoy a +2 Starting SP over their male counterparts.
+	if(characterGender == GENDER_FEMALE) baseSP += 2;
+
+	//physique modifier.
+	baseSP += physModSP[modelPhysique];
+
+
+	return baseSP;
+
+
+
+}
+
+/**
+ * Calculates the Expected HP Value for this character at their current level, to be used for
+ * the Anti Cheat Engine
+ * @return Expected HP Value (or -1 if undetectable)
+ */
+int Client::GetExpectedHPValue()
+{
+	if (GetCharacterName() == NULL) return -1;
+
+	int perLevelHPClass[] = {18,20,20,25,20,15};
+	int perLevelHPMod[] = {-2,-1,1,-1,0,2,0,1,3};
+
+	int expectedHP = GetExpectedBaseHPValue();
+
+	int characterLevel = GetCharacterLevel();
+
+	int characterClass = GetCharacterClass();
+	int characterGender = GetCharacterGender();
+	int modelPhysique = (activeCharacterModel >> 12) & 0x0F;
+	int perLevelHPGain = perLevelHPClass[characterClass];
+
+	if(characterGender == GENDER_FEMALE) perLevelHPGain -= 2;
+
+	perLevelHPGain += perLevelHPMod[modelPhysique];
+	expectedHP += (perLevelHPGain * (characterLevel - 1));
+	return expectedHP;
+
+}
+
+/**
+ * Calculates the Expected SP Value for this character at their current level, to be used for
+ * the Anti Cheat Engine
+ * @return Expected SP Value (or -1 if undetectable)
+ */
+int Client::GetExpectedSPValue()
+{
+	if (GetCharacterName() == NULL) return -1;
+	int perLevelSPClass[] = {3,3,3,3,3,5};
+	int perLevelSPMod[] = {1,0,-1,1,0,-1,1,0,-1};
+
+	int expectedSP = GetExpectedBaseSPValue();
+
+	int characterClass = GetCharacterClass();
+	int characterLevel = GetCharacterLevel();
+	int characterGender = GetCharacterGender();
+	int modelPhysique = (activeCharacterModel >> 12) & 0x0F;
+
+	int perLevelSPGain = perLevelSPClass[characterClass];
+
+	if(characterGender == GENDER_FEMALE) perLevelSPGain += 1;
+
+	perLevelSPGain += perLevelSPMod[modelPhysique];
+	expectedSP += (perLevelSPGain * (characterLevel - 1));
+
+	return expectedSP;
+
+}
+
 
 /**
  * Returns the Anti Cheat Engine Evaluation Result
