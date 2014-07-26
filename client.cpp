@@ -3296,7 +3296,7 @@ bool Client::ProcessRXBuffer()
 					*/
 
 					// Parse Data Passthrough Packet
-					ProcessDataPassthroughPacket(*channel, *subChannel, argument, argumentLength, *internalOpcode);
+					ProcessDataPassthroughPacket(ntohl(*channel), *subChannel, argument, argumentLength, ntohs(*internalOpcode));
 				}
 
 				// Normal Packets
