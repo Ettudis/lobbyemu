@@ -36,9 +36,13 @@
 #define WEIGHT_NORMAL 1
 #define WEIGHT_OBESE 2
 
+// Gender Options
 #define GENDER_MALE 0
 #define GENDER_FEMALE 1
 
+// Passthrough Subchannels
+#define TX_SUBCHANNEL 0
+#define RX_SUBCHANNEL 1
 
 // Message of the Day
 extern const char * MOTD;
@@ -141,13 +145,21 @@ class Client
 	// Number of God Statues visited online with the currently selected Character (inside of Lobby)
 	uint16_t activeCharacterOnlineGodCounter;
 
-
-
 	/**
 	 * Internal Common Constructor
 	 * @param socket Socket
 	 */
 	void CommonConstructor(int socket);
+
+	/**
+	 * 0xC01D Data Packet Processor
+	 * @param channel TCP Channel
+	 * @param subChannel TX / RX Channel
+	 * @param args Argument Buffer
+	 * @param aSize Argument Length (in Bytes)
+	 * @param opcode Internal Packet Opcode
+	 */
+	void ProcessDataPassthroughPacket(int channel, uint8_t subChannel, uint8_t * args, uint16_t aSize, uint16_t opcode);
 
 	/**
 	 * 0x30 Data Packet Processor
