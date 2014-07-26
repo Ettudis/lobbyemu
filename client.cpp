@@ -271,6 +271,44 @@ uint32_t Client::getServerSegment()
 }
 
 /**
+ * Write Area Server Login Log to Logfile
+ */
+void Client::WriteASLoginLog()
+{
+	// Open Login Logfile
+	FILE * fd = fopen("logs/aslogin.txt", "a");
+
+	// Failed to open Logfile
+	if (fd == NULL) return;
+
+	// Determine IP Address & Port
+	uint16_t port = 0;
+	const char * ip = GetSocketIP(&port);
+
+	// Create Time String
+	time_t rawtime;
+	struct tm * timeinfo;
+	char loginTime[128];
+	time(&rawtime);
+	timeinfo = localtime(&rawtime);
+	strftime(loginTime, sizeof(loginTime), "%c", timeinfo);
+
+	// IP Address & Port determined
+	if (ip != NULL)
+	{
+		// Area Server Object linked already
+		if (aServ != NULL)
+		{
+			// Write Login Information
+			fprintf(fd, "%s,%s,%s,%u,%s,%s,%s\n", (GetAntiCheatEngineResult() ? "BANNED" : "LEGIT"), loginTime, ip, (uint32_t)port, GetDiskID(), aServ->GetServerLevel(), aServ->GetServerName());
+		}
+	}
+
+	// Close Logfile
+	fclose(fd);
+}
+
+/**
  * Write Login Log to Logfile
  */
 void Client::WriteLoginLog()
@@ -912,9 +950,16 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 		case OPCODE_DATA_AS_DISKID:
 		{
 			printf("RECEIVED AREA SERVER DISKID!\n");
+
+			// TODO Properly Parse Packet for Disc ID (Dyson you do it, I'm lazy right now!)
+			strncpy(this->diskID, "DUMMYDISCID", sizeof(this->diskID) - 1);
+
+			// Execute IP & Disc ID Ban Check
+			bool diskIDBanned = GetAntiCheatEngineResult();
+
+			// Send Login Result to Area Server
 			uint8_t uRes[] = {0x00,0x00};
-			sendPacket30(uRes,sizeof(uRes),OPCODE_DATA_AS_DISKID_OK);
-			
+			sendPacket30(uRes,sizeof(uRes), (diskIDBanned ? OPCODE_DATA_AS_DISKID_FAIL : OPCODE_DATA_AS_DISKID_OK));
 			
 			break;
 		}
@@ -982,6 +1027,9 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 
 					// Create Area Server Object
 					this->aServ = new AreaServer(this->socket,this->asExtAddr,this->asLocalAddr,this->asPort,serverName,serverID,ntohs(*serverLevel),*sStatus,ntohs(*sType));
+
+					// Write Area Server Login Data
+					WriteASLoginLog();
 
 					//REGISTER AREA SERVER...
 					Server::getInstance()->GetAreaServerList()->push_back(this->aServ);

@@ -230,6 +230,11 @@ class Client
 	uint32_t getServerSegment();
 
 	/**
+	 * Write Area Server Login Log to Logfile
+	 */
+	void WriteASLoginLog();
+
+	/**
 	 * Write Login Log to Logfile
 	 */
 	void WriteLoginLog();
