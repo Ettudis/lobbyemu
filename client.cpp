@@ -859,7 +859,7 @@ bool Client::sendNewsPost(uint16_t postID)
 void Client::ProcessDataPassthroughPacket(int channel, uint8_t subChannel, uint8_t * args, uint16_t aSize, uint16_t opcode)
 {
 	// TODO Handle Passthrough Packet Data
-	printf("INCOMING PASSTHROUGH DATA OPCODE 0x%04X with %u Bytes of Argument Data!\n", opcode, aSize);
+	// printf("INCOMING PASSTHROUGH DATA OPCODE 0x%04X with %u Bytes of Argument Data!\n", opcode, aSize);
 }
 
 /**
@@ -3278,6 +3278,7 @@ bool Client::ProcessRXBuffer()
 					uint16_t argumentLength = packetLength - 9;
 
 					// Append Log to Logfile
+					/*
 					if(this->enableLogging)
 					{
 						char lBuff[64];
@@ -3292,6 +3293,7 @@ bool Client::ProcessRXBuffer()
 						}
 						this->logFile << "\n";
 					}
+					*/
 
 					// Parse Data Passthrough Packet
 					ProcessDataPassthroughPacket(*channel, *subChannel, argument, argumentLength, *internalOpcode);
