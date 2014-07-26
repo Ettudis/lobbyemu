@@ -300,7 +300,7 @@ void Client::WriteASLoginLog()
 		if (aServ != NULL)
 		{
 			// Write Login Information
-			fprintf(fd, "%s,%s,%s,%u,%s,%s,%s\n", (GetAntiCheatEngineResult() ? "BANNED" : "LEGIT"), loginTime, ip, (uint32_t)port, GetDiskID(), aServ->GetServerLevel(), aServ->GetServerName());
+			fprintf(fd, "%s,%s,%s,%u,%s,%u,%s\n", (GetAntiCheatEngineResult() ? "BANNED" : "LEGIT"), loginTime, ip, (uint32_t)port, GetDiskID(), aServ->GetServerLevel(), aServ->GetServerName());
 		}
 	}
 
