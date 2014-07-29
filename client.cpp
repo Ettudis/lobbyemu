@@ -1454,7 +1454,7 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 							strncpy(this->activeCharacterSaveID, characterSaveID, sizeof(this->activeCharacterSaveID) - 1);
 
 							// Normal User Account detected
-							if (activeCharacterModel == ADMIN_BLACK_CAT)
+							if (activeCharacterModel != ADMIN_BLACK_CAT)
 							{
 								// Calculate expected HP Value
 								int expectedHP = GetExpectedHPValue();
