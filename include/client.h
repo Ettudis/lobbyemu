@@ -18,6 +18,9 @@
 #define MIN_CHARACTER_LEVEL 1
 #define MAX_CHARACTER_LEVEL 99
 
+// Admin Characters
+#define ADMIN_BLACK_CAT 0x45A1
+
 // Character Classes
 #define CLASS_TWINBLADE 0
 #define CLASS_BLADEMASTER 1

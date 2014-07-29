@@ -1453,17 +1453,28 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 							strncpy(this->saveID, saveID, sizeof(this->saveID) - 1);
 							strncpy(this->activeCharacterSaveID, characterSaveID, sizeof(this->activeCharacterSaveID) - 1);
 
-							int expectedHP = GetExpectedHPValue();
-							if(expectedHP != GetCharacterHP())
+							// Normal User Account detected
+							if (activeCharacterModel == ADMIN_BLACK_CAT)
 							{
-								printf("HP MISMATCH: Expected HP: %u, Player HP: %u\n",expectedHP,GetCharacterHP());
-								banCache = true;
-							}
-							int expectedSP = GetExpectedSPValue();
-							if(expectedSP != GetCharacterSP())
-							{
-								printf("SP MISMATCH: Expected SP: %u, Player SP: %u\n",expectedSP,GetCharacterSP());
-								banCache = true;
+								// Calculate expected HP Value
+								int expectedHP = GetExpectedHPValue();
+
+								// HP Mismatch detected
+								if(expectedHP != GetCharacterHP())
+								{
+									printf("HP MISMATCH: Expected HP: %u, Player HP: %u\n",expectedHP,GetCharacterHP());
+									banCache = true;
+								}
+
+								// Calculate expected SP Value
+								int expectedSP = GetExpectedSPValue();
+
+								// SP Mismatch detected
+								if(expectedSP != GetCharacterSP())
+								{
+									printf("SP MISMATCH: Expected SP: %u, Player SP: %u\n",expectedSP,GetCharacterSP());
+									banCache = true;
+								}
 							}
 
 							// Write Login Attempt to Log
