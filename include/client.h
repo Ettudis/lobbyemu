@@ -50,7 +50,6 @@
 // Message of the Day
 extern const char * MOTD;
 
-
 // Logfile Stream Type Definition
 typedef std::ofstream clOfstream;
 
@@ -75,6 +74,9 @@ class Client
 	
 	// Area Server Object
 	AreaServer * aServ; // set when it becomes obvious Client is an Area Server	
+
+	// Area Server Coldbird Version Number
+	char asVersionNumber[16];
 
 	// Area Server Local IP Address (LAN)
 	uint32_t asLocalAddr; // acquired through packet contents

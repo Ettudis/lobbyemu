@@ -65,6 +65,7 @@ void Client::CommonConstructor(int socket)
 
 	// Initialize Area Server Field
 	this->aServ = NULL;
+	memset(this->asVersionNumber, 0, sizeof(this->asVersionNumber));
 
 	// Initialize Game Data Fields
 	memset(this->diskID, 0, sizeof(this->diskID));
@@ -954,8 +955,8 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 			// TODO Properly Parse Packet for Disc ID (Dyson you do it, I'm lazy right now!)
 			strncpy(this->diskID, "DUMMYDISCID", sizeof(this->diskID) - 1);
 
-			// Execute IP & Disc ID Ban Check
-			bool diskIDBanned = GetAntiCheatEngineResult();
+			// Execute IP, Disc ID & Version Number Ban Check
+			bool diskIDBanned = GetAntiCheatEngineResult() || strcmp(this->asVersionNumber, ALLOWED_AREASERVER_VERSION) != 0;
 
 			// Send Login Result to Area Server
 			uint8_t uRes[] = {0x00,0x00};
@@ -3308,6 +3309,39 @@ bool Client::ProcessRXBuffer()
 
 					// Parse Data Passthrough Packet
 					ProcessDataPassthroughPacket(ntohl(*channel), *subChannel, argument, argumentLength, ntohs(*internalOpcode));
+				}
+
+				// Version Report Packet
+				else if (packetOpcode == OPCODE_VERSION_REPORT)
+				{
+					// Substract Opcode Field from Packet Length
+					packetLength -= sizeof(uint16_t);
+
+					// Invalid Packet Length (body is never < 1)
+					if(packetLength < 1)
+					{
+						printf("Received packet with an invalid body length of %u bytes!\n", packetLength);
+						return false;
+					}
+
+					// Create Input Pointer
+					uint8_t * versionPacket = this->rxBuffer + 2 * sizeof(uint16_t);
+
+					// Fetch Data from Version Packet
+					char * version = (char *)versionPacket;
+
+					// Append Log to Logfile
+					if(this->enableLogging)
+					{
+						char lBuff[64];
+						memcpy(lBuff, version, packetLength > (sizeof(lBuff) - 1) ? sizeof(lBuff) - 1 : packetLength);
+						lBuff[packetLength > (sizeof(lBuff) - 1) ? sizeof(lBuff) - 1 : packetLength] = 0;
+						this->logFile << "Received AREASERVER-VERSION " << lBuff << "\n";
+					}
+
+					// Save Version Number into Client Object
+					memcpy(asVersionNumber, version, packetLength > (sizeof(asVersionNumber) - 1) ? sizeof(asVersionNumber) - 1 : packetLength);
+					asVersionNumber[packetLength > (sizeof(asVersionNumber) - 1) ? sizeof(asVersionNumber) - 1 : packetLength] = 0;
 				}
 
 				// Normal Packets
