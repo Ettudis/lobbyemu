@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define ALLOWED_AREASERVER_VERSION "1.0.4"
+#define ALLOWED_AREASERVER_VERSION "1.0.5"
 #define AS_LIST_LINE_MAXSIZE 45 // It's actually 43, but we'll give a little wiggle room.
 
 class AreaServer
