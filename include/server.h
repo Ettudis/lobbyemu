@@ -3,6 +3,7 @@
 
 #include <list>
 #include "client.h"
+#include "Lobbies.h"
 
 class Server
 {
@@ -16,6 +17,10 @@ class Server
 
 	// Internal Area Server List
 	std::list<AreaServer *> * areaServers;
+
+    // Internal Lobby Room List
+    std::list<LobbyChatRoom *> * lobbyRooms;
+
 
 	/**
 	 * Server Constructor
@@ -51,6 +56,13 @@ class Server
 	 * @return Area Server List
 	 */
 	std::list<AreaServer *> * GetAreaServerList();
+
+    /**
+     * @brief Get Lobby Room List from Server
+     * @return  Lobby Room List
+     */
+    std::list<LobbyChatRoom *> * GetLobbyRoomList();
+
 };
 
 #endif

@@ -7,6 +7,7 @@
 #include <iostream>
 #include <fstream>
 #include "areaServer.h"
+#include "Lobbies.h"
 
 // Cryptography Key Array Indices
 #define KEY_CLIENT 0
@@ -46,6 +47,9 @@
 // Passthrough Subchannels
 #define TX_SUBCHANNEL 0
 #define RX_SUBCHANNEL 1
+
+//Circular Include Depenancy for the Fail.
+class LobbyChatRoom;
 
 // Message of the Day
 extern const char * MOTD;
@@ -149,6 +153,19 @@ class Client
 
 	// Number of God Statues visited online with the currently selected Character (inside of Lobby)
 	uint16_t activeCharacterOnlineGodCounter;
+
+    //ID of the chatroom a user may currently been in.
+    uint16_t currentRoomID;
+
+    //Type of chatroom a user may be in.
+    uint16_t currentRoomType;
+
+    //Room specific userID for the room the client may be in
+    uint16_t currentRoomUserID;
+
+    //LobbyChatRoom that the user is currently in
+    LobbyChatRoom * currentRoom;
+
 
 	/**
 	 * Internal Common Constructor
@@ -456,6 +473,38 @@ class Client
 	 @return GENDER_MALE or GENDER_FEMALE (or -1 if undetectable)
 	 */
 	int GetCharacterGender();
+
+    /**
+     * @brief Gets the ID of the room the client may currently be in.
+     * @return roomID (or 0 if not in a room)
+     */
+    uint16_t GetCurrentRoomID();
+
+    /**
+     * @brief Gets the type of room the client may currently be in.
+     * @return ROOM_TYPE_LOBBY, ROOM_TYPE_CHAT, ROOM_TYPE_GUILD, or ROOM_TYPE_NONE
+     */
+    uint16_t GetCurrentRoomType();
+
+    /**
+     * @brief Gets the room specific userID for the room the client may currently be in.
+     * @return roomUserID (or 0 if not in a room)
+     */
+    uint16_t GetCurrentRoomUserID();
+
+    /**
+     * @brief Sends a packet to the client.
+     * @param args
+     * @param aSize
+     * @param opcode
+     *
+     * Needed a public method for sending packets via sendPacket30(). If there was a reason
+     * sendPacket30() was made private, this makes it moot. Unless I build some needlessly
+     * complex message queue system that the client has to poll for chatroom packets, or re-implement
+     * sendPacket30() in the LobbyChatRoom class, maybe sendPacket30() should just be made public instead?
+     */
+    void SendChatPacket(uint8_t * args, uint16_t aSize, uint16_t opcode);
+
 
 	/**
 	 * Returns the Client Network Socket

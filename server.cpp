@@ -43,6 +43,9 @@ Server::Server()
 
 	// Create Area Server List
 	areaServers = new std::list<AreaServer *>();
+
+    //Create Lobby Room List
+    lobbyRooms = new std::list<LobbyChatRoom *>();
 }
 
 /**
@@ -63,11 +66,24 @@ Server::~Server()
 		delete client;
 	}
 
+    //Iterate Lobby Rooms
+    for(std::list<LobbyChatRoom*>::iterator it = lobbyRooms->begin(); it != lobbyRooms->end(); /* Handled in Code*/)
+    {
+        LobbyChatRoom * room = *it;
+        lobbyRooms->erase(it++);
+        delete room;
+    }
+
+
 	// Free Client List
 	delete clients;
 
 	// Free Area Server List (no need to free items, they were created and destroyed inside the Client objects, this list is merely a public getter for faster querying)
 	delete areaServers;
+
+    //Free Lobby Room List
+    delete lobbyRooms;
+
 }
 
 /**
@@ -87,6 +103,11 @@ std::list<Client *> * Server::GetClientList()
 std::list<AreaServer *> * Server::GetAreaServerList()
 {
 	// Return Area Server List
-	return areaServers;
+    return areaServers;
+}
+
+std::list<LobbyChatRoom *> *Server::GetLobbyRoomList()
+{
+    return lobbyRooms;
 }
 

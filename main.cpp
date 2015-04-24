@@ -14,6 +14,7 @@
 #include <iostream>
 #include <areaServer.h>
 #include <list>
+#include <Lobbies.h>
 
 const char * MOTD = "Welcome to\n .hack//Fragment!\n\nCurrent Status:\nMail System:Down\nNews System:Down\nLobby System:BASIC\nBBS System:Down\nRanking System:Down\nGuild System:Down\n\nThank you,\n-Project Fragment Team";
 
@@ -89,6 +90,11 @@ int main(int argc, char * argv[])
 	{
 		// Notify User
 		printf("Listening for Connections on TCP Port 49000.\n");
+
+        //Manually create our main lobby room...
+        std::list<LobbyChatRoom *> * lobbyList = Server::getInstance()->GetLobbyRoomList();
+        lobbyList->push_back(new LobbyChatRoom("Main",1,ROOM_TYPE_LOBBY));
+
 
 		// Enter Server Loop
 		errorCode = server_loop(server);

@@ -14,6 +14,7 @@
 #include <list>
 #include "ccsNewsImage.h"
 
+
 // Class Names
 char * classNames[CLASS_WAVEMASTER + 1] = {
 	(char *)"Twin Blade",
@@ -74,6 +75,11 @@ void Client::CommonConstructor(int socket)
 	memset(this->activeCharacter, 0, sizeof(this->activeCharacter));
 	memset(this->activeCharacterGreeting, 0, sizeof(this->activeCharacterGreeting));
 	this->accountID = 0;
+    this->currentRoomID = 0;
+    this->currentRoomType = ROOM_TYPE_NONE;
+    this->currentRoomUserID = 0;
+    this->currentRoom = 0;
+
 
 	// Initialize RX Buffer
 	this->rxBufferPosition = 0;
@@ -124,7 +130,13 @@ void Client::CommonConstructor(int socket)
  */
 Client::~Client()
 {
-	// Client was an Area Server
+    //Remove client from a room, if they were in one.
+    if(this->currentRoom != NULL)
+    {
+        this->currentRoom->RemoveUser(this);
+    }
+
+    // Client was an Area Server
 	if (this->aServ != NULL)
 	{
 		// Remove Area Server from Server List
@@ -1546,38 +1558,6 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 			break;	
 		}	
 
-
-		case 0x7862:
-		{
-			// could this be OPCODE_DATA_SEND_GREETING?
-			/*
-				uint16_t unk1;
-				uint16_t unk2;
-				uint8_t unk3;
-				uint32_t unk4;
-				uint32_t unk5;
-				uint32_t unk6;
-				uint8_t messageLength; // in bytes
-				uint8_t message[]; // messageLength bytes long (null terminator is counted)
-			*/
-			printf("RECEIVED LOBBY_???\n");
-			uint8_t uRes[] = {0x00,0x01,0x30,0x30,0x30,0x30,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x11,0x82,0x61,0x82,0x74,0x82,0x6b,0x82,0x6a,0x82,0x71,0x82,0x6e,0x82,0x72,0x82,0x64};
-			sendPacket30(uRes,sizeof(uRes),0x7847);
-			
-			uint8_t uRes2[] = {0x30,0x30,0x30,0x30,0x30,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x11,0x82,0x61,0x82,0x74,0x82,0x6b,0x82,0x6a,0x82,0x71,0x82,0x6e,0x82,0x72,0x82,0x64};
-			sendPacket30(uRes2,sizeof(uRes2),0x7847);
-			
-//			uint8_t uRes2[] = {0x00,0x01,0x0c,0x04,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x11,0x82,0x61,0x82,0x74,0x82,0x6b,0x82,0x6a,0x82,0x71,0x82,0x6e,0x82,0x72,0x82,0x64};
-	//		sendPacket30(uRes2,sizeof(uRes2),0x7862);
-		//	uint8_t uRes3[] = {0x00,0x01,0x0c,0x05,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x11,0x82,0x61,0x82,0x74,0x82,0x6b,0x82,0x6a,0x82,0x71,0x82,0x6e,0x82,0x72,0x82,0x64};
-			//sendPacket30(uRes3,sizeof(uRes3),0x7862);
-			
-			
-			
-			
-			break;
-		}
-
 		case 0x780f:
 		{
 			//create_thread_title?
@@ -1946,71 +1926,187 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 											
 			break;												
 		}				
-								
+
+
+        //------------Lobby/Chatroom------------
+
+
+        case OPCODE_DATA_LOBBY_GETMENU:
+        {
+            printf("RECEIVED DATA_LOBBY_GETMENU\n");
+
+            // Minimal Argument Size
+            if (aSize >= 2)
+            {
+                uint16_t lID = ntohs(*(uint16_t*)(arg));
+                //uint16_t entryID, char*name,uint16_t numUsers, uint16_t maxUsers?
+
+                //I'm going to skip the categories for right now since we're only
+                //using 1 lobby. Later it'll be (slightly)trivial to add the categories back.
+                std::list<LobbyChatRoom *> * lobbyList = Server::getInstance()->GetLobbyRoomList();
+
+                //Just send the current number of lobbies...
+                uint16_t numLobbies = htons(lobbyList->size());
+                sendPacket30((uint8_t*)&numLobbies,sizeof(uint16_t),OPCODE_DATA_LOBBY_LOBBYLIST);
+
+
+                uint8_t lobbyEntryData[(ROOM_NAME_MAX_LEN + (sizeof(uint16_t) * 2))];
+
+                //Iterate lobby list and send the entry to client
+                for(std::list<LobbyChatRoom *>::iterator  it = lobbyList->begin(); it != lobbyList->end(); it++)
+                {
+                    LobbyChatRoom * tmpRoom = *it;
+
+                    //Cast lobby entry fields
+                    uint16_t * eID = (uint16_t*)&lobbyEntryData;
+                    char * eName = (char *)&eID[1];
+                    uint32_t eNameLen = strlen(tmpRoom->GetRoomName()) + 1;
+                    //If the lobby room name overflows, we've got serious problems.
+                    uint16_t * eNumUsers = (uint16_t *)&eName[eNameLen];
+                    uint16_t * eMaxUsers = &eNumUsers[1];
+
+                    //Fill lobby entry fields
+                    *eID = htons(tmpRoom->GetRoomID());
+                    strcpy(eName,tmpRoom->GetRoomName());
+                    *eNumUsers = htons(tmpRoom->GetNumUsers());
+                    *eMaxUsers = htons(tmpRoom->GetNumUsers() + 1);
+                    uint16_t lobbyEntryDataSize = eNameLen + (sizeof(uint16_t) * 3);
+
+                    sendPacket30(lobbyEntryData,lobbyEntryDataSize, OPCODE_DATA_LOBBY_ENTRY_LOBBY);
+                }
+                printf("Sent %d lobby entries\n",lobbyList->size());
+            }
+
+            else
+            {
+                printf("OPCODE_DATA_LOBBY_GETMENU INCOMPLETE\n");
+            }
+
+            break;
+        }
+
 		case OPCODE_DATA_LOBBY_ENTERROOM:
 		{
 			printf("RECEIVED DATA_LOBBY_ENTERROOM\n");
-			
-			uint8_t uRes[] = {0x00,0x01};
-			printf("Sending DATA_LOBBY_ENTEROOM_OK");
-			sendPacket30(uRes,sizeof(uRes),OPCODE_DATA_LOBBY_ENTERROOM_OK);
-						
-			uint8_t uRes2[] = {0x00,0x01,0x00,0x0c,0x04,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x06,0x57,0x4f,0x4e,0x47,0x46,0x55,0x00};
+            uint16_t rID = ntohs(*(uint16_t*)(arg));
+            uint16_t rType = ntohs(*(uint16_t *)(arg + sizeof(uint16_t)));
 
-			sendPacket30(uRes2,sizeof(uRes2),0x7009);
+            //Deal with different types of rooms.
+            //Right now we're only dealing with the main type, ROOM_TYPE_LOBBY
+            switch(rType)
+            {
+                case ROOM_TYPE_LOBBY:
+                {
+                    //TODO: Better way to get the room by it's ID? I hate std::map...
+                    std::list<LobbyChatRoom*> * lobbyList = Server::getInstance()->GetLobbyRoomList();
+                    LobbyChatRoom * targetRoom = NULL;
+                    for(std::list<LobbyChatRoom*>::iterator it = lobbyList->begin(); it != lobbyList->end(); it++)
+                    {
+                        LobbyChatRoom * tmpRoom = *it;
+                        if(tmpRoom->GetRoomID() == rID)
+                        {
+                            targetRoom = *it;
+                            break;
+                        }
+                    }
+                    if(targetRoom != NULL)
+                    {
+                        uint16_t numUsers = targetRoom->GetNumUsers();
+                        uint16_t newUserID = targetRoom->FindNextUserID();
+                        if((numUsers >= ROOM_MAX_CLIENTS) || (newUserID == 0))
+                        {
+                            printf("ROOM FULL. (%d/%d users in room) Sending Failure\n",numUsers,ROOM_MAX_CLIENTS);
+                            uint16_t uRes = 0;
+                            sendPacket30((uint8_t*)&uRes,sizeof(uRes),OPCODE_DATA_LOBBYROOM_NOTIFY_ROOM_FULL);
+                        }
+                        else
+                        {
+                            this->currentRoomUserID = newUserID;
+                            this->currentRoomType = ROOM_TYPE_LOBBY;
+                            this->currentRoom = targetRoom;
 
-			
-			
-																		
-																								
+                            numUsers = htons(numUsers);
+                            sendPacket30((uint8_t*)&numUsers,sizeof(uint16_t),OPCODE_DATA_LOBBY_ENTERROOM_OK);
+                            targetRoom->forwardAllStatusPackets(this);
+                            targetRoom->AddUser(this);
+                        }
+
+                    }
+                    else
+                    {
+                        printf("Invalid room. Sending Failure.\n");
+                        uint16_t uRes = 0;
+                        sendPacket30((uint8_t*)&uRes,sizeof(uRes),OPCODE_DATA_LOBBYROOM_NOTIFY_ROOM_FULL);
+                    }
+                    break;
+
+                }
+                default:
+                {
+                    printf("UNSUPPORTED ROOM TYPE, Sending OPCODE_DATA_LOBBYROOM_NOTIFY_ROOM_FULL!\n");
+                    uint16_t uRes = 0;
+                    sendPacket30((uint8_t*)&uRes,sizeof(uRes),OPCODE_DATA_LOBBYROOM_NOTIFY_ROOM_FULL);
+                    break;
+                }
+            }
 			break;
 			
-		}
-			
-				
-		/*
-		0x7007		
-			ENTER_ROOM_OK
-		0x7009
-			unknown
-		0x740b
-			unknown
-		0x740e
-			unknown
-		0x781f
-			"You've become room master"
-							
-								
-														
-		*/				
-						
-								
-										
-														
-		case 0x7009:
-		{
-			//7009 seems to be "LOBBY_FUNC?"
-			printf("RECEIVED 0x7009\n");
-			printf("sending OK\n");
-			//uint8_t uRes[] = {0x00,0x05,0x30,0x00,0x31,0x00,0x32,0x00,0x33,0x00};
-			//sendPacket30(uRes,sizeof(uRes),0x700a);
+        }
 
-			//010002000000000000000000000000000010000000000000ff0000010000003c000000e8030000
-									
-			//uint8_t uRes2[] = {0x01,0x00,0x02,0x00,0x30,0x00};
-			uint8_t uRes3[] = {0x00,0x01,0x00,0x01, 0x30,0x31,0x32,0x33,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x40,0x00,0x00,0x00,0x00,0x00,0xff,0xff,0x00,0x00,0x01,0x00,0x00,0x00,0x3c,0x00,0x00,0x00,0xe7,0x03,0x00,0x00};
-			sendPacket30(uRes3,sizeof(uRes3),0x7009);
-//			sendPacket30(uRes2,sizeof(uRes2),0x740b);
-//			sendPacket30(uRes2,sizeof(uRes2),0x740e);
-//			sendPacket30(uRes2,sizeof(uRes2),0x7009);
-//			uint8_t uRes3[] = {0x00,0x01,0x00,0x0c,0x04,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x4e,0x43,0x44,0x59,0x53,0x4f,0x4e,0x00};			
-//			uint8_t uRes4[] = {0x00,0x01,0x00,0x0c,0x05,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x08,0x31,0x32,0x33,0x34,0x35,0x36,0x37,0x00};						
-//			sendPacket30(uRes3,sizeof(uRes3),0x7862);										
-//			sendPacket30(uRes4,sizeof(uRes4),0x7862);															
-																		
-				
-			break;
-		}         		 		                           		 		                                  		  			                		 		                          
+        case OPCODE_DATA_LOBBY_EXITROOM:
+        {
+            printf("RECEIVED DATA_LOBBY_EXITROOM\n");
+
+            if(this->currentRoom)
+            {
+                currentRoom->RemoveUser(this);
+            }
+            else
+            {
+                printf("User attempting to exit room when not in room? OK?\n");
+            }
+            this->currentRoom = NULL;
+            this->currentRoomID = 0;
+            this->currentRoomType = 0;
+            this->currentRoomUserID = 0;
+
+            uint16_t uRes = 0;
+            sendPacket30((uint8_t *)&uRes,sizeof(uRes),OPCODE_DATA_LOBBY_EXITROOM_OK);
+
+
+            break;
+
+        }
+
+        case OPCODE_DATA_LOBBYROOM_PUBLIC_BROADCAST:
+        {
+            //Check to make sure client is even in a room
+            if(this->currentRoom)
+            {
+                currentRoom->DispatchPublicBroadcast(this->currentRoomUserID,arg,aSize);
+            }
+
+         break;
+        }
+
+        case OPCODE_DATA_LOBBYROOM_PRIVATE_BROADCAST:
+        {
+            if(this->currentRoom)
+            {
+                uint16_t tmpDestClientID = htons(*(uint16_t*)(arg + sizeof(uint16_t)));
+                currentRoom->DispatchPrivateBroadcast(this->currentRoomUserID,tmpDestClientID,arg,aSize);
+            }
+            break;
+        }
+
+        case OPCODE_DATA_LOBBYROOM_UPDATE_STATUS:
+        {
+            if(this->currentRoom)
+            {
+                currentRoom->DispatchStatusBroadcast(this->currentRoomUserID,arg,aSize);
+            }
+            break;
+        }
 		
 		case OPCODE_DATA_LOBBY_GETSERVERS:
 		{
@@ -2111,86 +2207,9 @@ void Client::processPacket30(uint8_t * arg, uint16_t aSize, uint16_t opcode)
 		
 		
 		
-		case OPCODE_DATA_LOBBY_EXITROOM:
-		{
-			printf("RECEIVED DATA_LOBBY_EXITROOM\n");
-			
-			uint8_t uRes[] = {0x00,0x00};
-			printf("Sending DATA_LOBBY_EXITROOM_OK\n");
-			sendPacket30(uRes,sizeof(uRes),OPCODE_DATA_LOBBY_EXITROOM_OK);
-			
-			
-			
-			break;
-			
-		}
-		
-		case OPCODE_DATA_LOBBY_GETMENU:
-		{
-
-			
-						
-			printf("RECEIVED DATA_LOBBY_GETMENU\n");
-
-			// Minimal Argument Size
-			if (aSize >= 2)
-			{
-				uint16_t lID = ntohs(*(uint16_t*)(arg));
-
-				if(lID == 1)
-				{
-					//uint16_t entryID, char*name,uint16_t numUsers, uint8_t lobbyStatus?
-					//uint8_t uRes2[] = {0x00,0x01,0x54,0x68,0x69,0x73,0x20,0x69,0x73,0x20,0x6e,0x6f,0x74,0x20,0x61,0x20,0x72,0x65,0x61,0x6c,0x20,0x73,0x65,0x72,0x76,0x65,0x72,0x2e,0x2e,0x2e,0x79,0x65,0x74,0x00,0x00,0x01,0x00,0x02};
-					uint8_t uRes2[50];
-					uint16_t * eID = (uint16_t*)uRes2;
-					char * eName = (char *)&eID[1];
-				
-					*eID = htons(0x01);
-					strncpy(eName,"Main",34);
-					uint16_t eNameLen = strlen(eName);
-					uint16_t * eNumUsers = (uint16_t *)&eName[eNameLen + 1];
-					uint16_t * eLobbyStatus = &eNumUsers[1];
-				
-					*eNumUsers = htons(0);
-					*eLobbyStatus = htons(0x01); //0 = RED X, 1 = OK.
-				
-										
-								
-																								
-					uint8_t uRes[] = {0x00,0x01}; //number of lobbies
-					printf("Sending LOBBY_ENTRY_SERVER\n");
-					sendPacket30(uRes,sizeof(uRes),OPCODE_DATA_LOBBY_LOBBYLIST);
-				
-				
-					printf("Sending LOBBY_ENTRY_SERVER\n");
-					sendPacket30(uRes2,sizeof(uRes2),OPCODE_DATA_LOBBY_ENTRY_LOBBY);				
-				
-				}
-				else
-				{
-					uint8_t uRes2[39] = {0};
 
 
-					uint8_t uRes[] = {0x00,0x01}; //number of categories
-					printf("Sending LOBBY_GETMENU_OK\n");
-					sendPacket30(uRes,sizeof(uRes),OPCODE_DATA_LOBBY_CATEGORYLIST);
 
-					//dirty hack...
-					uRes2[1] = 0x01;			
-					sprintf((char *)uRes2 + sizeof(uint16_t),"All Lobbies");
-			
-					printf("Trying to send a lobby list entry...\n");
-					sendPacket30(uRes2,sizeof(uRes2),OPCODE_DATA_LOBBY_ENTRY_CATEGORY);
-												
-				}
-			}
-			else
-			{
-				printf("OPCODE_DATA_LOBBY_GETMENU INCOMPLETE\n");
-			}
-
-			break;
-		}
 						
 
 		case OPCODE_DATA_MAIL_GET:
@@ -4207,7 +4226,42 @@ int Client::GetCharacterGender()
 	{
 		return GENDER_FEMALE;
 	}
-	return GENDER_MALE;
+    return GENDER_MALE;
+}
+
+/**
+ * @brief Gets the ID of the room the client may currently be in.
+ * @return roomID (or 0 if not in a room)
+ */
+uint16_t Client::GetCurrentRoomID()
+{
+    return this->currentRoomID;
+}
+
+/**
+ * @brief Gets the type of room the client may currently be in.
+ * @return ROOM_TYPE_LOBBY, ROOM_TYPE_CHAT, ROOM_TYPE_GUILD, or ROOM_TYPE_NONE
+ *
+ * If this value returns something other than that, it needs investigating.
+ */
+uint16_t Client::GetCurrentRoomType()
+{
+    return this->currentRoomType;
+}
+
+/**
+ * @brief Gets the room specific userID for the room the client may currently be in.
+ * @return roomUserID (or 0 if not in a room)
+ */
+uint16_t Client::GetCurrentRoomUserID()
+{
+    return this->currentRoomUserID;
+}
+
+void Client::SendChatPacket(uint8_t *args, uint16_t aSize, uint16_t opcode)
+{
+    //We could always do some checks, but screw it.
+    sendPacket30(args,aSize,opcode);
 }
 
 /**

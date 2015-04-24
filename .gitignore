@@ -1,0 +1,11 @@
+*.cproject
+*.project
+.settings/org.eclipse.cdt.codan.core.prefs
+*.config
+lobbyemu.creator
+*.files
+lobbyemu.includes
+*.o
+lobbyemu.exe
+*.user
+*.stackdump
